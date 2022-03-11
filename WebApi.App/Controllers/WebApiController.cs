@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using WebApi.App.Data;
 using WebApi.Models;
 
 namespace WebApi.App.Controllers
@@ -7,81 +9,86 @@ namespace WebApi.App.Controllers
     [ApiController]
     public class WebApiController : ControllerBase
     {
-        private static List<Pessoa> Pessoas = new List<Pessoa>{
-            new Pessoa{
-                Id = 1,
-                Nome = "Pedro",
-                Sobrenome = "Paro",
-                DataNascimento = new DateOnly(1986, 8, 18),
-                Profissao = "Dev"
-            },
-            new Pessoa{
-                Id = 2,
-                Nome = "Pedro",
-                Sobrenome = "Junior",
-                DataNascimento = new DateOnly(2018, 8, 18),
-                Profissao = "Dev"
-            }
-        };
+        private readonly WebApiDbContext _context;
+
+        public WebApiController(WebApiDbContext context)
+        {
+            _context = context;
+        }        
 
         [HttpGet]
         public async Task<ActionResult<List<Pessoa>>> Get()
         {
-            return Ok(Pessoas);
+            var pessoas = await _context.Pessoas.ToListAsync();
+
+            return Ok(pessoas);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Pessoa>> GetById(int id)
         {
-            var pessoa = Pessoas.Find(p => p.Id == id);
+            var pessoa = await _context.Pessoas.FindAsync(id);
 
             if(pessoa == null)
             {
-                return BadRequest("Pessoa não encontrada");
+                return NotFound("Pessoa não encontrada");
             }
 
             return Ok(pessoa);
         }
 
         [HttpPost]
-        public async Task<ActionResult<List<Pessoa>>> AddPessoa(Pessoa pessoa)
+        public async Task<ActionResult<Pessoa>> AddPessoa(Pessoa pessoa)
         {
-            Pessoas.Add(pessoa);
+            _context.Pessoas.Add(pessoa);
+            await _context.SaveChangesAsync();
 
-            return Ok(Pessoas);
+            return CreatedAtAction(nameof(GetById), new { id = pessoa.Id }, pessoa);
         }
 
         [HttpPut]
-        public async Task<ActionResult<List<Pessoa>>> UpdatePessoa(Pessoa pessoaUpdated)
+        public async Task<ActionResult<Pessoa>> UpdatePessoa(Pessoa pessoaUpdated)
         {
-            var pessoa = Pessoas.Find(p => p.Id == pessoaUpdated.Id);
+            var pessoa = await _context.Pessoas.FindAsync(pessoaUpdated.Id);
 
             if(pessoa == null)
             {
-                return BadRequest("Pessoa não encontrada");
+                return NotFound("Pessoa não encontrada");
             }
 
-            pessoa.DataNascimento = pessoaUpdated.DataNascimento;
             pessoa.Nome = pessoaUpdated.Nome;
-            pessoa.Profissao = pessoaUpdated.Profissao;
             pessoa.Sobrenome = pessoaUpdated.Sobrenome;
-            
-            return Ok(Pessoas);
+            pessoa.Profissao = pessoaUpdated.Profissao;
+            pessoa.DataNascimento = pessoaUpdated.DataNascimento;
+
+            _context.Entry(pessoa).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException) when (!_context.Pessoas.Any(p => p.Id == pessoaUpdated.Id))
+            {
+                return NotFound("Pessoa não encontrada");
+            }
+
+            return NoContent();
         }
 
         [HttpDelete("{id}")]
         public async Task<ActionResult<Pessoa>> DeletePessoa(int id)
         {
-            var pessoa = Pessoas.Find(p => p.Id == id);
+            var pessoa = await _context.Pessoas.FindAsync(id);
 
             if(pessoa == null)
             {
-                return BadRequest("Pessoa não encontrada");
+                return NotFound("Pessoa não encontrada");
             }
 
-            Pessoas.Remove(pessoa);
+            _context.Pessoas.Remove(pessoa);
+            await _context.SaveChangesAsync();
 
-            return Ok(Pessoas);
+            return NoContent();
         }
     }
 }

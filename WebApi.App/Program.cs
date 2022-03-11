@@ -1,8 +1,12 @@
+using WebApi.App.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.AddSqlite<WebApiDbContext>(GetConnectionString());
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -21,3 +25,12 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+string GetConnectionString() 
+{
+    var folder = Environment.SpecialFolder.LocalApplicationData;
+    var path = Environment.GetFolderPath(folder);
+    var dbPath = System.IO.Path.Join(path, "webapi.db");
+
+    return $"Data Source={dbPath}";
+}
